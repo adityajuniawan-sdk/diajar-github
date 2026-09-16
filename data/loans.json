@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "bookId": 1,
+    "borrower": "Rapli",
+    "date": "2026-09-15",
+    "returned": false
+  },
+  {
+    "id": 2,
+    "bookId": 1,
+    "borrower": "Rapli",
+    "date": "2026-09-15",
+    "returned": true
+  },
+  {
+    "id": 3,
+    "bookId": 1,
+    "borrower": "Rapli",
+    "date": "2026-09-15",
+    "returned": false
+  },
+  {
+    "id": 4,
+    "bookId": 4,
+    "borrower": "Budi Santoso",
+    "date": "2026-09-15",
+    "returned": true
+  },
+  {
+    "id": 5,
+    "bookId": 3,
+    "borrower": "Siti Rahma",
+    "date": "2026-09-15",
+    "returned": false
+  },
+  {
+    "id": 6,
+    "bookId": 3,
+    "borrower": " Siti Rahma",
+    "date": "2026-09-15",
+    "returned": false
+  },
+  {
+    "id": 7,
+    "bookId": 3,
+    "borrower": "siti rahma",
+    "date": "2026-09-15",
+    "returned": false
+  },
+  {
+    "id": 8,
+    "bookId": 3,
+    "borrower": "adit",
+    "date": "2026-09-15",
+    "returned": false
+  }
+]

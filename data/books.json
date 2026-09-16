@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "title": "Pemrograman JavaScript",
+    "authorId": 1,
+    "year": 2024,
+    "stock": 1
+  },
+  {
+    "id": 2,
+    "title": "Belajar Node.js",
+    "authorId": 2,
+    "year": 2023,
+    "stock": 2
+  },
+  {
+    "id": 3,
+    "title": "Dasar-Dasar Web",
+    "authorId": 3,
+    "year": 2022,
+    "stock": 0
+  },
+  {
+    "id": 4,
+    "title": "Algoritma dan Struktur Data",
+    "authorId": 1,
+    "year": 2024,
+    "stock": 1
+  }
+]
