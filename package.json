@@ -6,3 +6,10 @@
     "start": "node src/index.js"
   }
 }
+{
+  "type": "module",
+  "description": "Program perpustakaan menggunakan Node.js modular",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
