@@ -1,15 +1,20 @@
 {
-  "name": "pkl-modern-js-library",
+  "name": "jajngexpress",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Program perpustakaan sederhana menggunakan Node.js dan JavaScript modern.",
+  "main": "api.js",
   "scripts": {
-    "start": "node src/index.js"
-  }
-}
-{
-  "type": "module",
-  "description": "Program perpustakaan menggunakan Node.js modular",
-  "scripts": {
-    "start": "node index.js"
+    "start": "node api.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adityajuniawan-sdk/diajar-github.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
   }
 }
