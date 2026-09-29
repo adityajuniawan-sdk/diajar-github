@@ -1,45 +1,70 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db");
+const prisma = require("../db");
 
-// Menampilkan semua author
 router.get("/", async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT id, name
-            FROM authors
-            ORDER BY id
-        `);
+        const authors = await prisma.authors.findMany();
 
-        res.json(result.rows);
+        res.json(authors.map((author) => ({
+            id: Number(author.id),
+            name: author.name
+        })));
     } catch (error) {
+        console.error(error);
         res.status(500).json({
-            message: "Gagal mengambil data author",
-            error: error.message
+            message: "Gagal mengambil data authors"
         });
     }
 });
 
-// Menampilkan author berdasarkan ID
 router.get("/:id", async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT id, name
-            FROM authors
-            WHERE id = $1
-        `, [req.params.id]);
+        const id = BigInt(req.params.id);
 
-        if (result.rows.length === 0) {
+        const author = await prisma.authors.findUnique({
+            where: { id },
+            include: { books: true }
+        });
+
+        if (!author) {
             return res.status(404).json({
                 message: "Author tidak ditemukan"
             });
         }
 
-        res.json(result.rows[0]);
+        res.json({
+            id: Number(author.id),
+            name: author.name,
+            books: author.books.map((book) => ({
+                id: Number(book.id),
+                title: book.title
+            }))
+        });
     } catch (error) {
+        console.error(error);
         res.status(500).json({
-            message: "Gagal mengambil data author",
-            error: error.message
+            message: "Gagal mengambil data author"
+        });
+    }
+});
+
+router.post("/", async (req, res) => {
+    try {
+        const { name } = req.body;
+
+        const author = await prisma.authors.create({
+            data: { name }
+        });
+
+        res.status(201).json({
+            id: Number(author.id),
+            name: author.name
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Gagal menambahkan author"
         });
     }
 });

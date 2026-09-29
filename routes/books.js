@@ -1,53 +1,117 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db");
+const prisma = require("../db");
 
-// Menampilkan semua buku
 router.get("/", async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT
-                books.id,
-                books.title,
-                authors.name AS author
-            FROM books
-            JOIN authors ON books.author_id = authors.id
-            ORDER BY books.id
-        `);
+        const books = await prisma.books.findMany({
+            include: {
+                authors: true
+            }
+        });
 
-        res.json(result.rows);
+        const data = books.map((book) => ({
+            id: Number(book.id),
+            title: book.title,
+            author: {
+                id: Number(book.authors.id),
+                name: book.authors.name
+            }
+        }));
+
+        res.json(data);
     } catch (error) {
+        console.error(error);
         res.status(500).json({
-            message: "Gagal mengambil data buku",
-            error: error.message
+            message: "Gagal mengambil data books"
         });
     }
 });
 
-// Menampilkan buku berdasarkan ID
 router.get("/:id", async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT
-                books.id,
-                books.title,
-                authors.name AS author
-            FROM books
-            JOIN authors ON books.author_id = authors.id
-            WHERE books.id = $1
-        `, [req.params.id]);
+        const id = BigInt(req.params.id);
 
-        if (result.rows.length === 0) {
+        const book = await prisma.books.findUnique({
+            where: {
+                id: id
+            },
+            include: {
+                authors: true
+            }
+        });
+
+        if (!book) {
             return res.status(404).json({
                 message: "Buku tidak ditemukan"
             });
         }
 
-        res.json(result.rows[0]);
+        res.json({
+            id: Number(book.id),
+            title: book.title,
+            author: {
+                id: Number(book.authors.id),
+                name: book.authors.name
+            }
+        });
     } catch (error) {
+        console.error(error);
         res.status(500).json({
-            message: "Gagal mengambil data buku",
-            error: error.message
+            message: "Gagal mengambil data buku"
+        });
+    }
+});
+
+
+router.post("/", async (req, res) => {
+    try {
+        const { title, author_id } = req.body;
+
+        const book = await prisma.books.create({
+            data: {
+                title: title,
+                author_id: BigInt(author_id)
+            }
+        });
+
+        res.status(201).json({
+            id: Number(book.id),
+            title: book.title,
+            author_id: Number(book.author_id)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Gagal menambahkan buku"
+        });
+    }
+});
+
+router.put("/:id", async (req, res) => {
+    try {
+        const id = BigInt(req.params.id);
+        const { title, author_id } = req.body;
+
+        const book = await prisma.books.update({
+            where: {
+                id: id
+            },
+            data: {
+                title: title,
+                author_id: BigInt(author_id)
+            }
+        });
+
+        res.json({
+            id: Number(book.id),
+            title: book.title,
+            author_id: Number(book.author_id)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Gagal mengubah data buku"
         });
     }
 });
