@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model authors {
+  id    BigInt  @id @default(autoincrement())
+  name  String
+  books books[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model books {
+  id        BigInt  @id @default(autoincrement())
+  title     String
+  author_id BigInt
+  authors   authors @relation(fields: [author_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}

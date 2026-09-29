@@ -1,15 +1,28 @@
 {
-  "name": "pkl-modern-js-library",
+  "name": "jajngexpress",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Program perpustakaan sederhana menggunakan Node.js dan JavaScript modern.",
+  "main": "api.js",
   "scripts": {
-    "start": "node src/index.js"
-  }
-}
-{
-  "type": "module",
-  "description": "Program perpustakaan menggunakan Node.js modular",
-  "scripts": {
-    "start": "node index.js"
+    "start": "node api.js",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adityajuniawan-sdk/diajar-github.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^18.0.3",
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "prisma": "^7.10.0"
   }
 }
