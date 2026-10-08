@@ -1,117 +1,72 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const prisma = require("../db");
 
-router.get("/", async (req, res) => {
+const prisma = require('../db');
+const validateSlug = require('../middleware/validate');
+
+console.log('BOOKS ROUTE BARU AKTIF');
+
+function createSlug(text) {
+    return String(text)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+}
+
+// GET /books
+router.get('/', async (req, res) => {
     try {
-        const books = await prisma.books.findMany({
-            include: {
-                authors: true
-            }
-        });
+        const books = await prisma.books.findMany();
 
-        const data = books.map((book) => ({
-            id: Number(book.id),
-            title: book.title,
-            author: {
-                id: Number(book.authors.id),
-                name: book.authors.name
-            }
+        const result = books.map((book) => ({
+            id: book.id.toString(),
+            judul: book.judul,
+            author_id: book.author_id,
+            slug: createSlug(book.judul)
         }));
 
-        res.json(data);
+        res.json(result);
+
     } catch (error) {
         console.error(error);
+
         res.status(500).json({
-            message: "Gagal mengambil data books"
+            message: 'Gagal mengambil data books'
         });
     }
 });
 
-router.get("/:id", async (req, res) => {
+// GET /books/:slug
+router.get('/:slug', validateSlug, async (req, res) => {
     try {
-        const id = BigInt(req.params.id);
+        const { slug } = req.params;
 
-        const book = await prisma.books.findUnique({
-            where: {
-                id: id
-            },
-            include: {
-                authors: true
-            }
-        });
+        const books = await prisma.books.findMany();
+
+        const book = books.find(
+            (item) => createSlug(item.judul) === slug
+        );
 
         if (!book) {
             return res.status(404).json({
-                message: "Buku tidak ditemukan"
+                message: 'Buku tidak ditemukan'
             });
         }
 
         res.json({
-            id: Number(book.id),
-            title: book.title,
-            author: {
-                id: Number(book.authors.id),
-                name: book.authors.name
-            }
+            id: book.id.toString(),
+            judul: book.judul,
+            author_id: book.author_id,
+            slug: createSlug(book.judul)
         });
+
     } catch (error) {
         console.error(error);
+
         res.status(500).json({
-            message: "Gagal mengambil data buku"
-        });
-    }
-});
-
-
-router.post("/", async (req, res) => {
-    try {
-        const { title, author_id } = req.body;
-
-        const book = await prisma.books.create({
-            data: {
-                title: title,
-                author_id: BigInt(author_id)
-            }
-        });
-
-        res.status(201).json({
-            id: Number(book.id),
-            title: book.title,
-            author_id: Number(book.author_id)
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            message: "Gagal menambahkan buku"
-        });
-    }
-});
-
-router.put("/:id", async (req, res) => {
-    try {
-        const id = BigInt(req.params.id);
-        const { title, author_id } = req.body;
-
-        const book = await prisma.books.update({
-            where: {
-                id: id
-            },
-            data: {
-                title: title,
-                author_id: BigInt(author_id)
-            }
-        });
-
-        res.json({
-            id: Number(book.id),
-            title: book.title,
-            author_id: Number(book.author_id)
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            message: "Gagal mengubah data buku"
+            message: 'Gagal mengambil detail buku'
         });
     }
 });
