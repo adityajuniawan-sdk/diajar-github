@@ -2,70 +2,92 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../db");
 
+function createSlug(text) {
+    return String(text)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-");
+}
+
+// GET /authors
 router.get("/", async (req, res) => {
     try {
         const authors = await prisma.authors.findMany();
 
-        res.json(authors.map((author) => ({
-            id: Number(author.id),
-            name: author.name
-        })));
+        const result = authors.map((author) => ({
+            id: author.id.toString(),
+            name: author.name,
+            slug: createSlug(author.name)
+        }));
+
+        res.json(result);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            message: "Gagal mengambil data authors"
-        });
+        console.error("ERROR AUTHORS:", error);
+        res.status(500).json({ message: "Gagal mengambil data authors" });
     }
 });
 
-router.get("/:id", async (req, res) => {
+// GET /authors/:slug
+router.get("/:slug", async (req, res) => {
     try {
-        const id = BigInt(req.params.id);
+        const { slug } = req.params;
 
-        const author = await prisma.authors.findUnique({
-            where: { id },
+        if (!/^[a-z0-9-]+$/.test(slug)) {
+            return res.status(400).json({ message: "Format slug tidak valid" });
+        }
+
+        const authors = await prisma.authors.findMany({
             include: { books: true }
         });
 
+        const author = authors.find((item) => createSlug(item.name) === slug);
+
         if (!author) {
-            return res.status(404).json({
-                message: "Author tidak ditemukan"
-            });
+            return res.status(404).json({ message: "Author tidak ditemukan" });
         }
 
         res.json({
-            id: Number(author.id),
+            id: author.id.toString(),
             name: author.name,
+            slug: createSlug(author.name),
             books: author.books.map((book) => ({
-                id: Number(book.id),
+                id: book.id.toString(),
                 title: book.title
             }))
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            message: "Gagal mengambil data author"
-        });
+        console.error("ERROR DETAIL AUTHOR:", error);
+        res.status(500).json({ message: "Gagal mengambil data author" });
     }
 });
 
+// POST /authors (wajib login, dijaga di index.js)
 router.post("/", async (req, res) => {
     try {
-        const { name } = req.body;
+        const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+
+        if (!name) {
+            return res.status(400).json({ message: "Nama author wajib diisi" });
+        }
+
+        if (name.length > 100) {
+            return res.status(400).json({ message: "Nama author maksimal 100 karakter" });
+        }
 
         const author = await prisma.authors.create({
             data: { name }
         });
 
         res.status(201).json({
-            id: Number(author.id),
-            name: author.name
+            id: author.id.toString(),
+            name: author.name,
+            slug: createSlug(author.name)
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            message: "Gagal menambahkan author"
-        });
+        console.error("ERROR CREATE AUTHOR:", error);
+        res.status(500).json({ message: "Gagal menambahkan author" });
     }
 });
 
