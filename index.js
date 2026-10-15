@@ -35,6 +35,41 @@ function createSlug(text) {
         .replace(/-+/g, '-');
 }
 
+// VALIDASI INPUT BUKU (dipakai POST dan PUT)
+// Mengembalikan { error } kalau salah, atau { value } kalau benar
+function validateBook(body) {
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : null;
+    const year = body.year === undefined || body.year === null || body.year === ''
+        ? null
+        : Number(body.year);
+    const authorId = body.author_id;
+
+    if (!title) return { error: 'Judul buku wajib diisi' };
+    if (title.length > 200) return { error: 'Judul maksimal 200 karakter' };
+
+    if (year !== null && (!Number.isInteger(year) || year < 1000 || year > new Date().getFullYear())) {
+        return { error: 'Tahun tidak valid' };
+    }
+
+    if (!authorId || !/^\d+$/.test(String(authorId))) {
+        return { error: 'author_id wajib diisi (angka)' };
+    }
+
+    return { value: { title, description, year, authorId: BigInt(authorId) } };
+}
+
+function bookJson(book) {
+    return {
+        id: book.id.toString(),
+        title: book.title,
+        description: book.description,
+        year: book.year,
+        author_id: book.author_id.toString(),
+        slug: createSlug(book.title)
+    };
+}
+
 // LOGIN: POST /login
 app.use('/login', loginRoute);
 
@@ -45,18 +80,9 @@ app.get('/books', async (req, res) => {
             orderBy: { id: 'asc' }
         });
 
-        const result = books.map(book => ({
-            id: book.id.toString(),
-            title: book.title,
-            description: book.description,
-            year: book.year,
-            author_id: book.author_id.toString(),
-            slug: createSlug(book.title)
-        }));
-
         res.json({
             pesan: 'Data buku berhasil diambil',
-            data: result
+            data: books.map(bookJson)
         });
     } catch (error) {
         console.error('ERROR BOOKS:', error);
@@ -95,12 +121,7 @@ app.get('/books/:slug', async (req, res) => {
         res.json({
             pesan: 'Detail buku berhasil diambil',
             data: {
-                id: book.id.toString(),
-                title: book.title,
-                description: book.description,
-                year: book.year,
-                author_id: book.author_id.toString(),
-                slug: createSlug(book.title),
+                ...bookJson(book),
                 author: {
                     id: book.authors.id.toString(),
                     name: book.authors.name
@@ -119,76 +140,89 @@ app.get('/books/:slug', async (req, res) => {
 // POST /books (wajib login)
 app.post('/books', authMiddleware, async (req, res) => {
     try {
-        const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
-        const description = typeof req.body.description === 'string' ? req.body.description.trim() : null;
-        const year = req.body.year === undefined || req.body.year === null ? null : Number(req.body.year);
-        const authorId = req.body.author_id;
-
-        if (!title) {
-            return res.status(400).json({
-                pesan: 'Judul buku wajib diisi',
-                data: null
-            });
+        const result = validateBook(req.body);
+        if (result.error) {
+            return res.status(400).json({ pesan: result.error, data: null });
         }
+        const { title, description, year, authorId } = result.value;
 
-        if (title.length > 200) {
-            return res.status(400).json({
-                pesan: 'Judul maksimal 200 karakter',
-                data: null
-            });
-        }
-
-        if (year !== null && (!Number.isInteger(year) || year < 1000 || year > new Date().getFullYear())) {
-            return res.status(400).json({
-                pesan: 'Tahun tidak valid',
-                data: null
-            });
-        }
-
-        if (!authorId || !/^\d+$/.test(String(authorId))) {
-            return res.status(400).json({
-                pesan: 'author_id wajib diisi (angka)',
-                data: null
-            });
-        }
-
-        const author = await prisma.authors.findUnique({
-            where: { id: BigInt(authorId) }
-        });
-
+        const author = await prisma.authors.findUnique({ where: { id: authorId } });
         if (!author) {
-            return res.status(404).json({
-                pesan: 'Author tidak ditemukan',
-                data: null
-            });
+            return res.status(404).json({ pesan: 'Author tidak ditemukan', data: null });
         }
 
         const book = await prisma.books.create({
-            data: {
-                title,
-                description,
-                year,
-                author_id: BigInt(authorId)
-            }
+            data: { title, description, year, author_id: authorId }
         });
 
         res.status(201).json({
             pesan: 'Buku berhasil ditambahkan',
-            data: {
-                id: book.id.toString(),
-                title: book.title,
-                description: book.description,
-                year: book.year,
-                author_id: book.author_id.toString(),
-                slug: createSlug(book.title)
-            }
+            data: bookJson(book)
         });
     } catch (error) {
         console.error('ERROR CREATE BOOK:', error);
-        res.status(500).json({
-            pesan: 'Gagal menambahkan buku',
-            data: null
+        res.status(500).json({ pesan: 'Gagal menambahkan buku', data: null });
+    }
+});
+
+// PUT /books/:id (wajib login)
+app.put('/books/:id', authMiddleware, async (req, res) => {
+    try {
+        if (!/^\d+$/.test(req.params.id)) {
+            return res.status(400).json({ pesan: 'ID buku tidak valid', data: null });
+        }
+        const id = BigInt(req.params.id);
+
+        const result = validateBook(req.body);
+        if (result.error) {
+            return res.status(400).json({ pesan: result.error, data: null });
+        }
+        const { title, description, year, authorId } = result.value;
+
+        const existing = await prisma.books.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ pesan: 'Buku tidak ditemukan', data: null });
+        }
+
+        const author = await prisma.authors.findUnique({ where: { id: authorId } });
+        if (!author) {
+            return res.status(404).json({ pesan: 'Author tidak ditemukan', data: null });
+        }
+
+        const book = await prisma.books.update({
+            where: { id },
+            data: { title, description, year, author_id: authorId }
         });
+
+        res.json({
+            pesan: 'Buku berhasil diubah',
+            data: bookJson(book)
+        });
+    } catch (error) {
+        console.error('ERROR UPDATE BOOK:', error);
+        res.status(500).json({ pesan: 'Gagal mengubah buku', data: null });
+    }
+});
+
+// DELETE /books/:id (wajib login)
+app.delete('/books/:id', authMiddleware, async (req, res) => {
+    try {
+        if (!/^\d+$/.test(req.params.id)) {
+            return res.status(400).json({ pesan: 'ID buku tidak valid', data: null });
+        }
+        const id = BigInt(req.params.id);
+
+        const existing = await prisma.books.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ pesan: 'Buku tidak ditemukan', data: null });
+        }
+
+        await prisma.books.delete({ where: { id } });
+
+        res.json({ pesan: 'Buku berhasil dihapus', data: null });
+    } catch (error) {
+        console.error('ERROR DELETE BOOK:', error);
+        res.status(500).json({ pesan: 'Gagal menghapus buku', data: null });
     }
 });
 
