@@ -5,13 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Rak Buku</title>
+    <meta
+        name="description"
+        content="Rak Buku pribadi milik Aditya Juniawan Sidik. Sebuah ruang untuk menyimpan buku dan cerita."
+    >
+    <meta name="theme-color" content="#101711">
+
+    <title>Rak Buku — Aditya Juniawan Sidik</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
     <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap"
         rel="stylesheet"
     >
 
@@ -19,7 +25,7 @@
 </head>
 
 <body>
-    <!-- BACKGROUND VIDEO -->
+    <!-- VIDEO BACKGROUND -->
     <video
         id="bgv"
         autoplay
@@ -30,28 +36,63 @@
         aria-hidden="true"
     >
         <source src="bg.mp4" type="video/mp4">
-        Browser lu tidak mendukung video background.
     </video>
 
-    <!-- LAPISAN GELAP -->
-    <div id="shade"></div>
+    <!-- LAPISAN GELAP DI ATAS VIDEO -->
+    <div id="shade" aria-hidden="true"></div>
 
-    <!-- NAVIGASI -->
+    <!-- NAVIGASI UTAMA -->
     <header>
-        <h1>Rak Buku</h1>
+        <a class="brand" href="#/dashboard" aria-label="Rak Buku - Dashboard">
+            <span class="brand-mark">RB</span>
+            <span>Rak Buku</span>
+        </a>
 
+        <a href="#/dashboard" id="n-dashboard">Dashboard</a>
         <a href="#/books" id="n-books">Buku</a>
         <a href="#/authors" id="n-authors">Penulis</a>
-        <a href="#/add" id="n-add">Tambah buku</a>
+        <a href="#/add" id="n-add">Tambah Buku</a>
+        <a href="#/profile" id="n-profile">Profil</a>
         <a href="#/login" id="n-login">Masuk</a>
 
-        <button id="n-logout" hidden>Keluar</button>
+        <button id="n-logout" type="button" hidden>Keluar</button>
     </header>
 
-    <!-- KONTEN UTAMA -->
-    <main id="app"></main>
+    <!-- KONTEN APLIKASI -->
+    <main id="app" tabindex="-1">
+        <div class="loading">
+            <span class="loading-mark">RB</span>
+            <p>Membuka ruang baca...</p>
+        </div>
+    </main>
 
-    <!-- JAVASCRIPT APLIKASI -->
+    <!-- FOOTER -->
+    <footer>
+        <span>© <span id="footer-year">2026</span> Rak Buku</span>
+
+        <span>
+            Dibuat dengan cerita oleh
+            <a
+                href="https://www.instagram.com/jnwnsidik18_/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >Aditya Juniawan Sidik</a>
+        </span>
+    </footer>
+
+    <script>
+        document.getElementById("footer-year").textContent =
+            new Date().getFullYear();
+
+        // Memastikan video mencoba berjalan saat halaman dibuka.
+        const backgroundVideo = document.getElementById("bgv");
+
+        backgroundVideo.play().catch(() => {
+            // Beberapa browser membatasi autoplay.
+            // Video tetap dapat berjalan saat browser mengizinkan.
+        });
+    </script>
+
     <script src="script.js"></script>
 </body>
 </html>

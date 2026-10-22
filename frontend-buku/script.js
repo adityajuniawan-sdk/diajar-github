@@ -8,6 +8,15 @@ const LINES = [
     "pelan-pelan saja, ceritanya masih panjang."
 ];
 
+const PROFILE = {
+    name: "Aditya Juniawan Sidik",
+    instagram: "jnwnsidik18_",
+    photo: "foto1.jpg",
+    bio: "Mengabadikan cerita, ide, dan perjalanan melalui karya dan tulisan."
+};
+
+// ==================== TOKEN DAN UTILITAS ====================
+
 function getToken() {
     try {
         return localStorage.getItem("token");
@@ -50,6 +59,10 @@ async function api(path, options = {}) {
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+        if (response.status === 401) {
+            setToken(null);
+        }
+
         throw new Error(
             body.pesan || body.message ||
             "Permintaan gagal (" + response.status + ")"
@@ -63,40 +76,65 @@ async function api(path, options = {}) {
     return { data: body };
 }
 
-function updateNav() {
-    const loggedIn = !!getToken();
-
-    document.getElementById("n-login").hidden = loggedIn;
-    document.getElementById("n-logout").hidden = !loggedIn;
-
-    const hash = location.hash || "#/books";
-
-    ["books", "authors", "add", "login"].forEach(menu => {
-        const element = document.getElementById("n-" + menu);
-
-        if (element) {
-            element.classList.toggle("on", hash.startsWith("#/" + menu));
-        }
-    });
+function showError(error) {
+    app.innerHTML = `
+        <div class="msg err">
+            ${esc(error.message || "Terjadi kesalahan.")}<br>
+            <span>Pastikan backend berjalan di ${API}.</span>
+            <button class="btn2" onclick="route()">Coba lagi</button>
+        </div>
+    `;
 }
-
-document.getElementById("n-logout").onclick = () => {
-    setToken(null);
-    location.hash = "#/login";
-    route();
-};
 
 function hero(image, caption, text) {
     return `
         <div class="hero">
             <div class="pol">
-                <img src="${image}" alt="">
-                <span>${caption}</span>
+                <img src="${esc(image)}" alt="">
+                <span>${esc(caption)}</span>
             </div>
-            <p>${text}</p>
+            <p>${esc(text)}</p>
         </div>
     `;
 }
+
+// ==================== NAVIGASI ====================
+
+function updateNav() {
+    const loggedIn = !!getToken();
+
+    const login = document.getElementById("n-login");
+    const logout = document.getElementById("n-logout");
+
+    if (login) login.hidden = loggedIn;
+    if (logout) logout.hidden = !loggedIn;
+
+    const hash = location.hash || "#/dashboard";
+
+    ["dashboard", "books", "authors", "add", "profile", "login"]
+        .forEach(menu => {
+            const element = document.getElementById("n-" + menu);
+
+            if (element) {
+                element.classList.toggle(
+                    "on",
+                    hash.startsWith("#/" + menu)
+                );
+            }
+        });
+}
+
+const logoutButton = document.getElementById("n-logout");
+
+if (logoutButton) {
+    logoutButton.onclick = () => {
+        setToken(null);
+        location.hash = "#/dashboard";
+        route();
+    };
+}
+
+// ==================== EFEK TEKS LOGIN ====================
 
 let typer;
 
@@ -109,7 +147,7 @@ function typeLines(element) {
     let wait = 0;
 
     typer = setInterval(() => {
-        if (!document.body.contains(element)) {
+        if (!element || !document.body.contains(element)) {
             clearInterval(typer);
             return;
         }
@@ -125,6 +163,7 @@ function typeLines(element) {
             charIndex++;
 
             if (charIndex >= line.length) {
+                charIndex = line.length;
                 deleting = true;
                 wait = 22;
             }
@@ -139,8 +178,149 @@ function typeLines(element) {
             }
         }
 
-        element.firstChild.nodeValue = line.slice(0, charIndex);
+        element.textContent = line.slice(0, charIndex);
     }, 55);
+}
+
+// ==================== DASHBOARD ====================
+
+async function viewDashboard() {
+    app.innerHTML = `
+        <section class="dashboard">
+            <div class="glass dashboard-welcome">
+                <p class="meta">RUANG BACA PRIBADI</p>
+                <h2>Selamat datang di Rak Buku.</h2>
+                <p>
+                    Setiap buku menyimpan cerita.
+                    Setiap cerita punya perjalanan.
+                </p>
+
+                <div class="acts">
+                    <a class="btn" href="#/books">Jelajahi Koleksi</a>
+                    <a class="btn2" href="#/profile">Tentang Saya</a>
+                </div>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="glass stat-card">
+                    <p class="meta">TOTAL BUKU</p>
+                    <h2 id="totalBooks">—</h2>
+                    <a href="#/books">Lihat koleksi →</a>
+                </div>
+
+                <div class="glass stat-card">
+                    <p class="meta">TOTAL PENULIS</p>
+                    <h2 id="totalAuthors">—</h2>
+                    <a href="#/authors">Lihat penulis →</a>
+                </div>
+            </div>
+
+            <div class="glass dashboard-collection">
+                <div class="author-heading">
+                    <h2>Koleksi Buku</h2>
+                    <a class="btn2" href="#/books">Lihat semua</a>
+                </div>
+
+                <div id="latestBooks">
+                    <p class="meta">Memuat koleksi...</p>
+                </div>
+            </div>
+
+            <div class="glass dashboard-collection">
+                <h2>Jelajahi Rak Buku</h2>
+                <div class="acts">
+                    <a class="btn" href="#/add">+ Tambah Buku</a>
+                    <a class="btn2" href="#/authors">Daftar Penulis</a>
+                </div>
+            </div>
+        </section>
+    `;
+
+    const [bookResult, authorResult] = await Promise.allSettled([
+        api("/books"),
+        api("/authors")
+    ]);
+
+    // Hindari memperbarui halaman yang sudah berpindah.
+    if (location.hash && !location.hash.startsWith("#/dashboard")) return;
+
+    const books = bookResult.status === "fulfilled"
+        ? bookResult.value.data || []
+        : [];
+
+    const authors = authorResult.status === "fulfilled"
+        ? authorResult.value.data || []
+        : [];
+
+    document.getElementById("totalBooks").textContent =
+        bookResult.status === "fulfilled" ? books.length : "—";
+
+    document.getElementById("totalAuthors").textContent =
+        authorResult.status === "fulfilled" ? authors.length : "—";
+
+    const latest = document.getElementById("latestBooks");
+
+    if (bookResult.status === "rejected") {
+        latest.innerHTML = `
+            <div class="msg err">
+                Buku gagal dimuat. Pastikan backend aktif.
+            </div>
+        `;
+        return;
+    }
+
+    latest.innerHTML = books.length
+        ? books.slice(-5).reverse().map(book => `
+            <a class="book glass"
+               href="#/books/${encodeURIComponent(book.slug)}">
+                <b>${esc(book.title)}</b>
+                <div class="meta">
+                    ${esc(book.year || "Tahun belum diisi")}
+                </div>
+            </a>
+        `).join("")
+        : "<p>Belum ada buku di koleksi.</p>";
+
+    if (authorResult.status === "rejected") {
+        latest.insertAdjacentHTML(
+            "beforeend",
+            '<p class="meta">Data penulis belum berhasil dimuat.</p>'
+        );
+    }
+}
+
+// ==================== PROFILE ====================
+
+function viewProfile() {
+    app.innerHTML = `
+        <section class="profile-page">
+            <div class="glass profile-card">
+                <img
+                    src="${esc(PROFILE.photo)}"
+                    alt="Foto profil"
+                    class="profile-photo"
+                >
+
+                <p class="meta">CREATOR OF RAK BUKU</p>
+                <h2>${esc(PROFILE.name)}</h2>
+                <p>${esc(PROFILE.bio)}</p>
+
+                <a
+                    class="btn instagram-btn"
+                    href="https://www.instagram.com/${encodeURIComponent(PROFILE.instagram)}/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Instagram · @${esc(PROFILE.instagram)}
+                </a>
+
+                <div class="acts">
+                    <a class="btn2" href="#/dashboard">Dashboard</a>
+                    <a class="btn2" href="#/books">Lihat Koleksi</a>
+                </div>
+            </div>
+        </section>
+    `;
 }
 
 // ==================== DAFTAR BUKU ====================
@@ -159,16 +339,20 @@ async function viewBooks() {
     `;
 
     const result = await api("/books");
+    if (!location.hash.startsWith("#/books") || location.hash.includes("/", 2)) return;
+
     const books = result.data || [];
 
     app.innerHTML = `
         ${header}
         <h2>Daftar buku</h2>
+
         ${books.length ? books.map(book => `
-            <a class="book glass" href="#/books/${esc(book.slug)}">
+            <a class="book glass"
+               href="#/books/${encodeURIComponent(book.slug)}">
                 <b>${esc(book.title)}</b>
                 <div class="meta">
-                    ${book.year ? esc(book.year) : "Tahun belum diisi"}
+                    ${esc(book.year || "Tahun belum diisi")}
                 </div>
             </a>
         `).join("") : "<p>Belum ada buku.</p>"}
@@ -181,6 +365,8 @@ async function viewBook(slug) {
     app.innerHTML = `<p class="meta">Memuat detail buku...</p>`;
 
     const result = await api("/books/" + encodeURIComponent(slug));
+    if (location.hash !== "#/books/" + slug) return;
+
     const book = result.data;
 
     app.innerHTML = `
@@ -191,15 +377,19 @@ async function viewBook(slug) {
 
             <p class="meta">
                 Penulis: ${esc(book.author?.name || "Belum diketahui")}
-                | Tahun: ${book.year ? esc(book.year) : "belum diisi"}
+                | Tahun: ${esc(book.year || "belum diisi")}
             </p>
 
             <p>${esc(book.description || "Deskripsi belum diisi.")}</p>
 
             ${getToken() ? `
                 <div class="acts">
-                    <a class="btn2" href="#/edit/${esc(book.slug)}">Edit buku</a>
-                    <button class="btn2 del" id="delBook">Hapus buku</button>
+                    <a class="btn2" href="#/edit/${encodeURIComponent(book.slug)}">
+                        Edit buku
+                    </a>
+                    <button class="btn2 del" id="delBook" type="button">
+                        Hapus buku
+                    </button>
                 </div>
             ` : ""}
 
@@ -214,11 +404,16 @@ async function viewBook(slug) {
             if (!confirm(`Hapus buku "${book.title}"?`)) return;
 
             try {
-                await api("/books/" + book.id, { method: "DELETE" });
+                await api("/books/" + encodeURIComponent(book.id), {
+                    method: "DELETE"
+                });
+
                 location.hash = "#/books";
             } catch (error) {
-                document.getElementById("out").innerHTML =
-                    `<div class="msg err">${esc(error.message)}</div>`;
+                const out = document.getElementById("out");
+                if (out) {
+                    out.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
+                }
             }
         };
     }
@@ -240,11 +435,13 @@ async function viewEdit(slug) {
         api("/authors")
     ]);
 
+    if (location.hash !== "#/edit/" + slug) return;
+
     const book = bookResult.data;
     const authors = authorResult.data || [];
 
     app.innerHTML = `
-        <a class="back" href="#/books/${esc(book.slug)}">Batal</a>
+        <a class="back" href="#/books/${encodeURIComponent(book.slug)}">Batal</a>
 
         <div class="glass" style="padding:6px 24px 24px">
             <h2>Edit buku</h2>
@@ -265,7 +462,7 @@ async function viewEdit(slug) {
 
                 <label for="year">Tahun terbit</label>
                 <input id="year" type="number" min="1000"
-                    max="${new Date().getFullYear()}" value="${book.year ?? ""}">
+                    max="${new Date().getFullYear()}" value="${esc(book.year ?? "")}">
 
                 <label for="desc">Deskripsi</label>
                 <textarea id="desc" rows="4">${esc(book.description)}</textarea>
@@ -290,20 +487,20 @@ async function viewEdit(slug) {
         };
 
         try {
-            const result = await api("/books/" + book.id, {
+            const result = await api("/books/" + encodeURIComponent(book.id), {
                 method: "PUT",
                 body: JSON.stringify(body)
             });
 
-            location.hash = "#/books/" + result.data.slug;
+            location.hash = "#/books/" + encodeURIComponent(result.data.slug);
         } catch (error) {
-            document.getElementById("out").innerHTML =
-                `<div class="msg err">${esc(error.message)}</div>`;
+            const out = document.getElementById("out");
+            if (out) out.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
         }
     };
 }
 
-// ==================== DAFTAR PENULIS + TAMBAH PENULIS ====================
+// ==================== DAFTAR PENULIS ====================
 
 async function viewAuthors() {
     const header = hero(
@@ -319,7 +516,7 @@ async function viewAuthors() {
             <h2>Penulis</h2>
 
             ${getToken() ? `
-                <button class="btn" id="showAddAuthor">
+                <button class="btn" id="showAddAuthor" type="button">
                     + Tambah Penulis
                 </button>
             ` : ""}
@@ -349,7 +546,6 @@ async function viewAuthors() {
 
                     <form id="addAuthorForm">
                         <label for="newAuthorName">Nama penulis</label>
-
                         <input
                             id="newAuthorName"
                             type="text"
@@ -359,10 +555,7 @@ async function viewAuthors() {
                         >
 
                         <div class="acts">
-                            <button class="btn" type="submit">
-                                Simpan Penulis
-                            </button>
-
+                            <button class="btn" type="submit">Simpan Penulis</button>
                             <button class="btn2" type="button" id="cancelAddAuthor">
                                 Batal
                             </button>
@@ -386,9 +579,7 @@ async function viewAuthors() {
                 const name = input.value.trim();
 
                 if (!name) {
-                    message.innerHTML = `
-                        <div class="msg err">Nama penulis wajib diisi.</div>
-                    `;
+                    message.innerHTML = '<div class="msg err">Nama penulis wajib diisi.</div>';
                     return;
                 }
 
@@ -408,13 +599,10 @@ async function viewAuthors() {
                     `;
 
                     await loadAuthorList();
-
                     input.value = "";
                     input.focus();
                 } catch (error) {
-                    message.innerHTML = `
-                        <div class="msg err">${esc(error.message)}</div>
-                    `;
+                    message.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
                 } finally {
                     saveButton.disabled = false;
                     saveButton.textContent = "Simpan Penulis";
@@ -428,30 +616,25 @@ async function viewAuthors() {
 
 async function loadAuthorList() {
     const list = document.getElementById("authorList");
-
     if (!list) return;
 
     try {
         const result = await api("/authors");
-        const authors = result.data || [];
-
         if (!document.getElementById("authorList")) return;
+
+        const authors = result.data || [];
 
         list.innerHTML = authors.length
             ? authors.map(author => `
-                <a class="book glass" href="#/authors/${esc(author.slug)}">
+                <a class="book glass" href="#/authors/${encodeURIComponent(author.slug)}">
                     <b>${esc(author.name)}</b>
-                    <div class="meta">
-                        ${esc(author.total_books ?? 0)} buku
-                    </div>
+                    <div class="meta">${esc(author.total_books ?? 0)} buku</div>
                 </a>
             `).join("")
             : "<p>Belum ada data penulis.</p>";
     } catch (error) {
         if (document.getElementById("authorList")) {
-            list.innerHTML = `
-                <div class="msg err">${esc(error.message)}</div>
-            `;
+            list.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
         }
     }
 }
@@ -460,6 +643,8 @@ async function loadAuthorList() {
 
 async function viewAuthor(slug) {
     const result = await api("/authors/" + encodeURIComponent(slug));
+    if (location.hash !== "#/authors/" + slug) return;
+
     const author = result.data;
 
     app.innerHTML = `
@@ -470,19 +655,22 @@ async function viewAuthor(slug) {
 
             ${getToken() ? `
                 <div class="acts">
-                    <a class="btn2" href="#/edit-author/${esc(author.id)}">Edit penulis</a>
-                    <button class="btn2 del" id="deleteAuthor">Hapus penulis</button>
+                    <a class="btn2" href="#/edit-author/${encodeURIComponent(author.id)}">
+                        Edit penulis
+                    </a>
+                    <button class="btn2 del" id="deleteAuthor" type="button">
+                        Hapus penulis
+                    </button>
                 </div>
             ` : ""}
 
             <div id="out"></div>
-
             <h3>Buku karya penulis</h3>
 
             ${author.books?.length ? author.books.map(book => `
-                <div class="book glass">
+                <a class="book glass" href="#/books/${encodeURIComponent(book.slug)}">
                     <b>${esc(book.title)}</b>
-                </div>
+                </a>
             `).join("") : "<p>Penulis ini belum punya buku.</p>"}
         </div>
     `;
@@ -494,11 +682,14 @@ async function viewAuthor(slug) {
             if (!confirm(`Hapus penulis "${author.name}"?`)) return;
 
             try {
-                await api("/authors/" + author.id, { method: "DELETE" });
+                await api("/authors/" + encodeURIComponent(author.id), {
+                    method: "DELETE"
+                });
+
                 location.hash = "#/authors";
             } catch (error) {
-                document.getElementById("out").innerHTML =
-                    `<div class="msg err">${esc(error.message)}</div>`;
+                const out = document.getElementById("out");
+                if (out) out.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
             }
         };
     }
@@ -516,6 +707,8 @@ async function viewEditAuthor(id) {
     }
 
     const result = await api("/authors");
+    if (location.hash !== "#/edit-author/" + id) return;
+
     const authors = result.data || [];
     const author = authors.find(item => String(item.id) === String(id));
 
@@ -525,7 +718,7 @@ async function viewEditAuthor(id) {
     }
 
     app.innerHTML = `
-        <a class="back" href="#/authors/${esc(author.slug)}">Batal</a>
+        <a class="back" href="#/authors/${encodeURIComponent(author.slug)}">Batal</a>
 
         <div class="glass" style="padding:20px 24px">
             <h2>Edit penulis</h2>
@@ -545,17 +738,17 @@ async function viewEditAuthor(id) {
         event.preventDefault();
 
         try {
-            const response = await api("/authors/" + author.id, {
+            const response = await api("/authors/" + encodeURIComponent(author.id), {
                 method: "PUT",
                 body: JSON.stringify({
                     name: document.getElementById("authorName").value.trim()
                 })
             });
 
-            location.hash = "#/authors/" + response.data.slug;
+            location.hash = "#/authors/" + encodeURIComponent(response.data.slug);
         } catch (error) {
-            document.getElementById("out").innerHTML =
-                `<div class="msg err">${esc(error.message)}</div>`;
+            const out = document.getElementById("out");
+            if (out) out.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
         }
     };
 }
@@ -572,7 +765,7 @@ function viewLogin() {
             </div>
 
             <div>
-                <p class="tag" id="tag"> </p>
+                <p class="tag" id="tag"></p>
 
                 <div class="glass card">
                     <h2>Masuk</h2>
@@ -608,11 +801,11 @@ function viewLogin() {
             });
 
             setToken(result.data.token);
-            location.hash = "#/books";
+            location.hash = "#/dashboard";
             updateNav();
         } catch (error) {
-            document.getElementById("out").innerHTML =
-                `<div class="msg err">${esc(error.message)}</div>`;
+            const out = document.getElementById("out");
+            if (out) out.innerHTML = `<div class="msg err">${esc(error.message)}</div>`;
         }
     };
 }
@@ -629,6 +822,8 @@ async function viewAdd() {
     }
 
     const result = await api("/authors");
+    if (location.hash !== "#/add") return;
+
     const authors = result.data || [];
 
     const header = hero(
@@ -643,32 +838,40 @@ async function viewAdd() {
         <div class="glass" style="padding:6px 24px 24px">
             <h2>Tambah buku</h2>
 
-            <form id="addBookForm">
-                <label for="title">Judul</label>
-                <input id="title" required maxlength="200">
+            ${authors.length ? `
+                <form id="addBookForm">
+                    <label for="title">Judul</label>
+                    <input id="title" required maxlength="200">
 
-                <label for="author">Penulis</label>
-                <select id="author" required>
-                    ${authors.map(author => `
-                        <option value="${esc(author.id)}">${esc(author.name)}</option>
-                    `).join("")}
-                </select>
+                    <label for="author">Penulis</label>
+                    <select id="author" required>
+                        ${authors.map(author => `
+                            <option value="${esc(author.id)}">${esc(author.name)}</option>
+                        `).join("")}
+                    </select>
 
-                <label for="year">Tahun terbit</label>
-                <input id="year" type="number" min="1000"
-                    max="${new Date().getFullYear()}">
+                    <label for="year">Tahun terbit</label>
+                    <input id="year" type="number" min="1000"
+                        max="${new Date().getFullYear()}">
 
-                <label for="desc">Deskripsi</label>
-                <textarea id="desc" rows="4"></textarea>
+                    <label for="desc">Deskripsi</label>
+                    <textarea id="desc" rows="4"></textarea>
 
-                <button class="btn" type="submit">Simpan buku</button>
-            </form>
+                    <button class="btn" type="submit">Simpan buku</button>
+                </form>
+            ` : `
+                <p>Tambahkan penulis terlebih dahulu sebelum membuat buku.</p>
+                <a class="btn" href="#/authors">Ke Penulis</a>
+            `}
 
             <div id="out"></div>
         </div>
     `;
 
-    document.getElementById("addBookForm").onsubmit = async event => {
+    const form = document.getElementById("addBookForm");
+    if (!form) return;
+
+    form.onsubmit = async event => {
         event.preventDefault();
 
         const yearValue = document.getElementById("year").value;
@@ -689,11 +892,13 @@ async function viewAdd() {
             document.getElementById("out").innerHTML = `
                 <div class="msg ok">
                     Buku berhasil ditambahkan.
-                    <a href="#/books/${esc(result.data.slug)}">Lihat detail</a>
+                    <a href="#/books/${encodeURIComponent(result.data.slug)}">
+                        Lihat detail
+                    </a>
                 </div>
             `;
 
-            event.target.reset();
+            form.reset();
         } catch (error) {
             document.getElementById("out").innerHTML =
                 `<div class="msg err">${esc(error.message)}</div>`;
@@ -706,11 +911,17 @@ async function viewAdd() {
 async function route() {
     updateNav();
 
-    const parts = (location.hash || "#/books").slice(2).split("/");
+    const parts = (location.hash || "#/dashboard").slice(2).split("/");
 
     try {
-        if (parts[0] === "books" && parts[1]) {
+        if (parts[0] === "dashboard") {
+            await viewDashboard();
+        } else if (parts[0] === "profile") {
+            viewProfile();
+        } else if (parts[0] === "books" && parts[1]) {
             await viewBook(parts[1]);
+        } else if (parts[0] === "books") {
+            await viewBooks();
         } else if (parts[0] === "authors" && parts[1]) {
             await viewAuthor(parts[1]);
         } else if (parts[0] === "authors") {
@@ -724,15 +935,10 @@ async function route() {
         } else if (parts[0] === "login") {
             viewLogin();
         } else {
-            await viewBooks();
+            location.hash = "#/dashboard";
         }
     } catch (error) {
-        app.innerHTML = `
-            <div class="msg err">
-                ${esc(error.message)}.
-                Pastikan backend berjalan di ${API}.
-            </div>
-        `;
+        showError(error);
     }
 }
 
