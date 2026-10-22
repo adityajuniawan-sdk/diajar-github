@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Rak Buku</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&display=swap"
+        rel="stylesheet"
+    >
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- BACKGROUND VIDEO -->
+    <video
+        id="bgv"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        aria-hidden="true"
+    >
+        <source src="bg.mp4" type="video/mp4">
+        Browser lu tidak mendukung video background.
+    </video>
+
+    <!-- LAPISAN GELAP -->
+    <div id="shade"></div>
+
+    <!-- NAVIGASI -->
+    <header>
+        <h1>Rak Buku</h1>
+
+        <a href="#/books" id="n-books">Buku</a>
+        <a href="#/authors" id="n-authors">Penulis</a>
+        <a href="#/add" id="n-add">Tambah buku</a>
+        <a href="#/login" id="n-login">Masuk</a>
+
+        <button id="n-logout" hidden>Keluar</button>
+    </header>
+
+    <!-- KONTEN UTAMA -->
+    <main id="app"></main>
+
+    <!-- JAVASCRIPT APLIKASI -->
+    <script src="script.js"></script>
+</body>
+</html>
