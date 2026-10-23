@@ -10,6 +10,7 @@ const logger = require('./middleware/logger');
 const authMiddleware = require('./middleware/auth');
 
 const loginRoute = require('./routes/login');
+const registerRoute = require('./routes/register');
 const authorsRoute = require('./routes/authors');
 const meRoute = require('./routes/me');
 
@@ -126,10 +127,14 @@ function bookJson(book) {
 }
 
 // ========================================
-// LOGIN
+// LOGIN DAN REGISTER
 // ========================================
 
+// POST /login
 app.use('/login', loginRoute);
+
+// POST /register
+app.use('/register', registerRoute);
 
 // ========================================
 // DAFTAR BUKU
@@ -142,14 +147,14 @@ app.get('/books', async (req, res) => {
             orderBy: { id: 'asc' }
         });
 
-        res.json({
+        return res.json({
             pesan: 'Data buku berhasil diambil',
             data: books.map(bookJson)
         });
     } catch (error) {
         console.error('ERROR BOOKS:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             pesan: 'Gagal mengambil data buku',
             data: null
         });
@@ -187,7 +192,7 @@ app.get('/books/:slug', async (req, res) => {
             });
         }
 
-        res.json({
+        return res.json({
             pesan: 'Detail buku berhasil diambil',
             data: {
                 ...bookJson(book),
@@ -202,7 +207,7 @@ app.get('/books/:slug', async (req, res) => {
     } catch (error) {
         console.error('ERROR DETAIL BOOK:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             pesan: 'Gagal mengambil detail buku',
             data: null
         });
@@ -226,7 +231,12 @@ app.post('/books', authMiddleware, async (req, res) => {
             });
         }
 
-        const { title, description, year, authorId } = result.value;
+        const {
+            title,
+            description,
+            year,
+            authorId
+        } = result.value;
 
         const author = await prisma.authors.findUnique({
             where: { id: authorId }
@@ -248,14 +258,14 @@ app.post('/books', authMiddleware, async (req, res) => {
             }
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             pesan: 'Buku berhasil ditambahkan',
             data: bookJson(book)
         });
     } catch (error) {
         console.error('ERROR CREATE BOOK:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             pesan: 'Gagal menambahkan buku',
             data: null
         });
@@ -264,7 +274,8 @@ app.post('/books', authMiddleware, async (req, res) => {
 
 // ========================================
 // EDIT BUKU
-// PUT /books/:id dan PATCH /books/:id
+// PUT /books/:id
+// PATCH /books/:id
 // Wajib login
 // ========================================
 
@@ -287,7 +298,12 @@ async function updateBook(req, res) {
             });
         }
 
-        const { title, description, year, authorId } = result.value;
+        const {
+            title,
+            description,
+            year,
+            authorId
+        } = result.value;
 
         const existing = await prisma.books.findUnique({
             where: { id }
@@ -370,14 +386,14 @@ app.delete('/books/:id', authMiddleware, async (req, res) => {
             where: { id }
         });
 
-        res.json({
+        return res.json({
             pesan: 'Buku berhasil dihapus',
             data: null
         });
     } catch (error) {
         console.error('ERROR DELETE BOOK:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             pesan: 'Gagal menghapus buku',
             data: null
         });
@@ -412,7 +428,7 @@ app.use('/me', meRoute);
 // ========================================
 
 app.use((req, res) => {
-    res.status(404).json({
+    return res.status(404).json({
         pesan: 'Route tidak ditemukan',
         data: null
     });
