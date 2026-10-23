@@ -25,7 +25,6 @@ app.use(logger);
 
 // ========================================
 // FRONTEND RAK BUKU
-// localhost:3000 langsung membuka website
 // ========================================
 
 const frontendPath = path.join(
@@ -37,7 +36,6 @@ const frontendPath = path.join(
 
 app.use(express.static(frontendPath));
 
-// ROOT
 app.get('/', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
@@ -193,10 +191,12 @@ app.get('/books/:slug', async (req, res) => {
             pesan: 'Detail buku berhasil diambil',
             data: {
                 ...bookJson(book),
-                author: {
-                    id: book.authors.id.toString(),
-                    name: book.authors.name
-                }
+                author: book.authors
+                    ? {
+                        id: book.authors.id.toString(),
+                        name: book.authors.name
+                    }
+                    : null
             }
         });
     } catch (error) {
@@ -264,11 +264,11 @@ app.post('/books', authMiddleware, async (req, res) => {
 
 // ========================================
 // EDIT BUKU
-// PUT /books/:id
+// PUT /books/:id dan PATCH /books/:id
 // Wajib login
 // ========================================
 
-app.put('/books/:id', authMiddleware, async (req, res) => {
+async function updateBook(req, res) {
     try {
         if (!/^\d+$/.test(req.params.id)) {
             return res.status(400).json({
@@ -321,19 +321,22 @@ app.put('/books/:id', authMiddleware, async (req, res) => {
             }
         });
 
-        res.json({
+        return res.json({
             pesan: 'Buku berhasil diubah',
             data: bookJson(book)
         });
     } catch (error) {
         console.error('ERROR UPDATE BOOK:', error);
 
-        res.status(500).json({
+        return res.status(500).json({
             pesan: 'Gagal mengubah buku',
             data: null
         });
     }
-});
+}
+
+app.put('/books/:id', authMiddleware, updateBook);
+app.patch('/books/:id', authMiddleware, updateBook);
 
 // ========================================
 // HAPUS BUKU

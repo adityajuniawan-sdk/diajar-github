@@ -488,7 +488,7 @@ async function viewEdit(slug) {
 
         try {
             const result = await api("/books/" + encodeURIComponent(book.id), {
-                method: "PUT",
+                method: "PATCH",
                 body: JSON.stringify(body)
             });
 
@@ -739,7 +739,7 @@ async function viewEditAuthor(id) {
 
         try {
             const response = await api("/authors/" + encodeURIComponent(author.id), {
-                method: "PUT",
+                method: "PATCH",
                 body: JSON.stringify({
                     name: document.getElementById("authorName").value.trim()
                 })

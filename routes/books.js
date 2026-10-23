@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
@@ -13,7 +14,7 @@ function createSlug(text) {
 }
 
 function validId(id) {
-    return /^\d+$/.test(id);
+    return /^\d+$/.test(String(id));
 }
 
 // GET /books
@@ -88,7 +89,11 @@ router.post('/', async (req, res) => {
     try {
         const { title, author_id, description, year } = req.body;
 
-        if (!title?.trim() || !validId(String(author_id ?? ''))) {
+        if (
+            typeof title !== 'string' ||
+            !title.trim() ||
+            !validId(author_id)
+        ) {
             return res.status(400).json({
                 pesan: 'Judul dan author wajib diisi',
                 data: null
@@ -106,12 +111,25 @@ router.post('/', async (req, res) => {
             });
         }
 
+        let parsedYear = null;
+
+        if (year !== undefined && year !== null && year !== '') {
+            parsedYear = Number(year);
+
+            if (!Number.isInteger(parsedYear) || parsedYear < 0) {
+                return res.status(400).json({
+                    pesan: 'Tahun tidak valid',
+                    data: null
+                });
+            }
+        }
+
         const book = await prisma.books.create({
             data: {
                 title: title.trim(),
                 author_id: BigInt(author_id),
                 description: description || null,
-                year: year ? Number(year) : null
+                year: parsedYear
             }
         });
 
@@ -132,11 +150,10 @@ router.post('/', async (req, res) => {
     }
 });
 
-// PUT /books/:id
-router.put('/:id', async (req, res) => {
+// PATCH /books/:id
+router.patch('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, author_id, description, year } = req.body;
 
         if (!validId(id)) {
             return res.status(400).json({
@@ -145,18 +162,8 @@ router.put('/:id', async (req, res) => {
             });
         }
 
-        if (!title?.trim() || !validId(String(author_id ?? ''))) {
-            return res.status(400).json({
-                pesan: 'Judul dan author wajib diisi',
-                data: null
-            });
-        }
-
-        const bookId = BigInt(id);
-        const authorId = BigInt(author_id);
-
         const existingBook = await prisma.books.findUnique({
-            where: { id: bookId }
+            where: { id: BigInt(id) }
         });
 
         if (!existingBook) {
@@ -166,25 +173,93 @@ router.put('/:id', async (req, res) => {
             });
         }
 
-        const author = await prisma.authors.findUnique({
-            where: { id: authorId }
-        });
+        const data = {};
 
-        if (!author) {
-            return res.status(404).json({
-                pesan: 'Author tidak ditemukan',
+        // Perbarui judul hanya jika dikirim
+        if (req.body.title !== undefined) {
+            if (
+                typeof req.body.title !== 'string' ||
+                !req.body.title.trim()
+            ) {
+                return res.status(400).json({
+                    pesan: 'Judul buku wajib diisi',
+                    data: null
+                });
+            }
+
+            data.title = req.body.title.trim();
+        }
+
+        // Perbarui penulis hanya jika dikirim
+        if (req.body.author_id !== undefined) {
+            if (!validId(req.body.author_id)) {
+                return res.status(400).json({
+                    pesan: 'ID author tidak valid',
+                    data: null
+                });
+            }
+
+            const author = await prisma.authors.findUnique({
+                where: { id: BigInt(req.body.author_id) }
+            });
+
+            if (!author) {
+                return res.status(404).json({
+                    pesan: 'Author tidak ditemukan',
+                    data: null
+                });
+            }
+
+            data.author_id = BigInt(req.body.author_id);
+        }
+
+        // Perbarui deskripsi hanya jika dikirim
+        if (req.body.description !== undefined) {
+            if (
+                req.body.description !== null &&
+                typeof req.body.description !== 'string'
+            ) {
+                return res.status(400).json({
+                    pesan: 'Deskripsi tidak valid',
+                    data: null
+                });
+            }
+
+            data.description = req.body.description || null;
+        }
+
+        // Perbarui tahun hanya jika dikirim
+        if (req.body.year !== undefined) {
+            if (
+                req.body.year !== null &&
+                req.body.year !== '' &&
+                (
+                    !Number.isInteger(Number(req.body.year)) ||
+                    Number(req.body.year) < 0
+                )
+            ) {
+                return res.status(400).json({
+                    pesan: 'Tahun tidak valid',
+                    data: null
+                });
+            }
+
+            data.year =
+                req.body.year === null || req.body.year === ''
+                    ? null
+                    : Number(req.body.year);
+        }
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({
+                pesan: 'Tidak ada data yang diperbarui',
                 data: null
             });
         }
 
         const book = await prisma.books.update({
-            where: { id: bookId },
-            data: {
-                title: title.trim(),
-                author_id: authorId,
-                description: description || null,
-                year: year ? Number(year) : null
-            }
+            where: { id: BigInt(id) },
+            data
         });
 
         res.json({
